@@ -46,40 +46,25 @@ def _compute_slide_durations(
     audio_path: Path | None = None,
     fallback: int = 35,
 ) -> list[int]:
-    """Compute per-slide duration proportional to narration word count.
-
-    If audio_path is provided, durations are scaled so the total matches
-    the actual audio length.  Otherwise falls back to WPM estimate.
-    """
-    # Collect narration text per slide in the same order build_slide_payloads produces
+    """Compute per-slide duration proportional to narration word count."""
     narration_parts: list[str] = []
-
-    # Title slide narrates the intro
     narration_parts.append(briefing.get("intro", ""))
-
-    # Section slides
     for section in briefing.get("sections", []):
         narration_parts.append(section.get("narration", ""))
-
-    # Summary slide
     narration_parts.append(briefing.get("summary", ""))
 
     word_counts = [max(1, len(part.split())) for part in narration_parts]
     total_words = sum(word_counts)
 
-    # Try to get real audio duration
     total_seconds: float | None = None
     if audio_path and audio_path.exists():
         total_seconds = _get_audio_duration(audio_path)
 
     if total_seconds is None:
-        # Fall back to WPM estimate
         total_seconds = total_words / 145.0 * 60.0
 
-    # Distribute proportionally, minimum 3 seconds per slide
     durations = [max(3, int(total_seconds * wc / total_words)) for wc in word_counts]
 
-    # Add any leftover time to the last slide so audio doesn't get cut off
     assigned = sum(durations)
     if total_seconds and assigned < int(total_seconds) + 2:
         durations[-1] += int(total_seconds) + 2 - assigned
@@ -103,7 +88,6 @@ def run_pipeline(
     hf_model: str = "facebook/bart-large-cnn",
     verbose: bool = False,
 ) -> dict:
-    # Configure logging
     log_level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(
         level=log_level,
@@ -153,7 +137,7 @@ def run_pipeline(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Automated Content Briefing Pipeline")
+    parser = argparse.ArgumentParser(description="BriefCast — Automated Content Briefing Pipeline")
     parser.add_argument("--input", required=True, help="Path to input file (.pdf, .txt, .md)")
     parser.add_argument("--output-dir", default="output", help="Output directory")
     parser.add_argument("--max-sections", type=int, default=5, help="Maximum number of sections")

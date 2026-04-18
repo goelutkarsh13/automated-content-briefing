@@ -2,7 +2,7 @@
 
 ## Overview
 
-This system converts long-form text or PDF content into a short multimedia briefing. The output is designed to mimic a concise executive or editorial briefing with a clear narrative structure, visual support, and audio narration.
+BriefCast converts long-form text or PDF content into a short multimedia briefing. The output is a concise narrated slide-deck video with a clear narrative structure, visual support, and audio narration.
 
 The architecture emphasizes:
 
@@ -18,8 +18,8 @@ Document Input
   -> Text Extraction
   -> Cleaning and Chunking
   -> Chunk Summarization
-  -> Section Planning
-  -> Script + Slide Draft Generation
+  -> Briefing Assembly
+  -> Script + Slide Generation
   -> TTS Narration
   -> Video Composition
 ```
@@ -47,7 +47,7 @@ Chunk summaries are then assembled into a briefing plan with:
 - closing summary
 
 ### 3. Briefing Structure Generation
-The system transforms chunk summaries into a structured JSON artifact. This intermediate representation is useful because it decouples content planning from rendering.
+The system transforms chunk summaries into a structured JSON artifact. This intermediate representation decouples content planning from rendering.
 
 The JSON includes:
 
@@ -57,7 +57,7 @@ The JSON includes:
 - summary statement
 
 ### 4. Visual Generation
-Slides are created using deterministic templates rather than generative video models.
+Slides are created using deterministic templates.
 
 Why:
 
@@ -83,15 +83,16 @@ Supported options:
 ### 6. Composition
 The final video is composed using `ffmpeg` in three steps: each slide image is looped into a short video clip for its assigned duration, all clips are concatenated, and the narration audio is merged in.
 
-Slide durations are calculated by measuring the actual audio length with `ffprobe`, then distributing time proportionally based on each section's narration word count. This keeps slides roughly in sync with speech without requiring word-level audio alignment.
+Slide durations are calculated by measuring the actual audio length with `ffprobe`, then distributing time proportionally based on each section's narration word count.
 
 Intermediate files (per-slide clips, concat manifest) are cleaned up automatically after composition.
 
-This keeps the final render stage cheap, robust, and easy to automate.
+### 7. Web Frontend
+A React frontend (Vite + Tailwind CSS) provides a browser-based interface for the pipeline. Users can paste text or upload a file, watch pipeline progress, and view the generated video, slides, and narration script. The frontend communicates with a FastAPI server that wraps the pipeline.
 
 ## Cost Considerations
 
-The design avoids using proprietary paid APIs for core logic. The only runtime costs are local compute and optional model downloads.
+The design avoids using proprietary paid APIs for core logic. The only runtime costs are local compute and a one-time model download (~1.6GB for BART).
 
 ### Cost-saving choices
 
@@ -112,7 +113,7 @@ The design avoids using proprietary paid APIs for core logic. The only runtime c
 ### Robustness choices
 
 1. **Audio output validation** — TTS backends (especially pyttsx3 on headless systems) can silently produce empty files; the pipeline checks file size post-synthesis and raises early.
-2. **Structured logging** — all modules use Python's `logging` library with a `--verbose` flag for debug-level output, making failures traceable without printf debugging.
+2. **Structured logging** — all modules use Python's `logging` library with a `--verbose` flag for debug-level output.
 3. **Graceful fallback in summarization** — if model inference fails on a chunk, the pipeline falls back to extractive sentence selection rather than crashing.
 
 ## Tradeoffs
@@ -138,6 +139,5 @@ The core engineering decision was to optimize for **clarity and cost-efficiency*
 - chart generation from extracted numeric data
 - optional avatar presenter
 - multilingual narration
-- web interface for upload and review
+- AI-generated video clips via open-source models (e.g. LTX-Video) when GPU budget allows
 - higher quality open-source voice cloning
-
